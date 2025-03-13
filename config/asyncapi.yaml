@@ -1,0 +1,191 @@
+asyncapi: 3.0.0
+info:
+  title: Taskly
+  version: 1.0.0
+  description: |
+    This AsyncAPI specification describes the message broker configuration
+    for the Taskly SAAS.
+  
+defaultContentType: application/json
+
+servers:
+  messagebroker:
+    host: "{host}"
+    protocol: amqp
+    description: Local AMQP message broker
+    bindings:
+      amqp:
+        virtualHost: /
+
+channels:
+
+  simplifyme.usermanagement.UserSubscribed:
+    messages:
+      UserSubscribed:
+        $ref: '#/components/messages/UserSubscribed'
+    bindings:
+      amqp:
+        is: routingKey
+        exchange:
+          name: simplifyme
+          type: topic
+          routingKey: simplifyme.usermanagement.UserSubscribed
+
+  simplifyme.usermanagement.UserUnsubscribed:
+    messages:
+      UserUnsubscribed:
+        $ref: '#/components/messages/UserUnsubscribed'
+    bindings:
+      amqp:
+        is: routingKey
+        exchange:
+          name: simplifyme
+          type: topic
+          routingKey: simplifyme.usermanagement.UserUnsubscribed
+
+  simplifyme.payment.PaymentExpired:
+    messages:
+      PaymentExpired:
+        $ref: '#/components/messages/PaymentExpired'
+    bindings:
+      amqp:
+        is: routingKey
+        exchange:
+          name: simplifyme
+          type: topic
+          routingKey: simplifyme.payment.PaymentExpired
+
+  simplifyme.taskly.TodoListCreated:
+    messages:
+      TodoListCreated:
+        $ref: '#/components/messages/TodoListCreated'
+    bindings:
+      amqp:
+        is: routingKey
+        exchange:
+          name: simplifyme
+          type: topic
+          routingKey: simplifyme.taskly.TodoListCreated
+
+  simplifyme.taskly.TaskTransferred:
+    messages:
+      TaskTransferred:
+        $ref: '#/components/messages/TaskTransferred'
+    bindings:
+      amqp:
+        is: routingKey
+        exchange:
+          name: simplifyme
+          type: topic
+          routingKey: simplifyme.taskly.TaskTransferred
+
+operations:
+  CreateUserWhenUserSubscribed:
+    action: receive
+    channel:
+      $ref: '#/channels/simplifyme.usermanagement.UserSubscribed'
+    description: Triggered when a user is subscribed.
+    messages:
+      - $ref: >-
+          #/channels/simplifyme.usermanagement.UserSubscribed/messages/UserSubscribed
+
+  SuspendUserWhenUserUnsubscribed:
+    action: receive
+    channel:
+      $ref: '#/channels/simplifyme.usermanagement.UserUnsubscribed'
+    description: Triggered when a user is unsubscribed.
+    messages:
+      - $ref: >-
+          #/channels/simplifyme.usermanagement.UserUnsubscribed/messages/UserUnsubscribed
+
+  SuspendUserWhenPaymentExpired:
+    action: receive
+    channel:
+      $ref: '#/channels/simplifyme.payment.PaymentExpired'
+    description: Triggered when a payment expires.
+    messages:
+      - $ref: >-
+          #/channels/simplifyme.payment.PaymentExpired/messages/PaymentExpired
+
+  TodoListCreated:
+    action: send
+    channel:
+      $ref: '#/channels/simplifyme.taskly.TodoListCreated'
+    description: Published when a new to-do list is created.
+    messages:
+      - $ref: >-
+          #/channels/simplifyme.taskly.TodoListCreated/messages/TodoListCreated
+  TaskTransferred:
+    action: send
+    channel:
+      $ref: '#/channels/simplifyme.taskly.TaskTransferred'
+    description: Published when a task is transferred to another user or list.
+    messages:
+      - $ref: >-
+          #/channels/simplifyme.taskly.TaskTransferred/messages/TaskTransferred
+
+components:
+  messages:
+    UserSubscribed:
+      name: UserSubscribed
+      title: User Subscribed
+      summary: Indicates a user has subscribed.
+      payload:
+        type: object
+        properties:
+          userId:
+            type: string
+            format: uuid
+
+    UserUnsubscribed:
+      name: UserUnsubscribed
+      title: User Unsubscribed
+      summary: Indicates a user has unsubscribed.
+      payload:
+        type: object
+        properties:
+          userId:
+            type: string
+            format: uuid
+
+    PaymentExpired:
+      name: PaymentExpiredMessage
+      title: Payment Expired
+      summary: Indicates a user’s payment has expired.
+      payload:
+        type: object
+        properties:
+          userId:
+            type: string
+            format: uuid
+
+    TodoListCreated:
+      name: TodoListCreated
+      title: To-Do List Created
+      summary: A new to-do list has been created.
+      payload:
+        type: object
+        properties:
+          todoListId:
+            type: string
+            format: uuid
+          todoListName:
+            type: string
+
+    TaskTransferred:
+      name: TaskTransferred
+      title: Task Transferred
+      summary: A task has been transferred to another todo list.
+      payload:
+        type: object
+        properties:
+          sourceListId:
+            type: string
+            format: uuid
+          targetListId:
+            type: string
+            format: uuid
+          taskId:
+            type: string
+            format: uuid
+  

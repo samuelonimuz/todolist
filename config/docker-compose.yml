@@ -1,0 +1,29 @@
+services:
+  messagebroker:
+    image: cloudamqp/lavinmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - simplifyme-taskly
+  
+  database:
+    image: postgres
+    ports:
+      - 5432:5432
+    volumes:
+      - postgres:/data/postgres
+    env_file:
+      - .docker-postgres.env
+    networks:
+      - simplifyme-taskly
+    restart: always
+
+networks:
+  simplifyme-taskly:
+    ipam:
+      config:
+        - subnet: 10.29.0.0/16
+
+volumes:
+    postgres:

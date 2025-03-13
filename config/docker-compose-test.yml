@@ -1,0 +1,44 @@
+services:
+  messagebroker:
+    image: cloudamqp/lavinmq
+    ports:
+      - "5672:5672"
+      - "5671:5671"
+      - "15672:15672"
+    networks:
+      - simplifyme-taskly-test
+  
+  database:
+    image: postgres
+    ports:
+      - 5432:5432
+    volumes:
+      - postgres:/data/postgres
+    env_file:
+      - .docker-postgres.env
+    networks:
+      - simplifyme-taskly-test
+    restart: always
+
+  taskly:
+    image: localhost:5000/simplifyme-taskly-dotnet
+    pull_policy: always
+    ports: 
+      - 5273:5273
+      - 8080:8080
+    env_file:
+      - .docker-taskly.env
+    depends_on:
+      - messagebroker
+      - database
+    networks:
+      - simplifyme-taskly-test
+
+networks:
+  simplifyme-taskly-test:
+    ipam:
+      config:
+        - subnet: 10.30.0.0/16
+
+volumes:
+    postgres:
