@@ -1,4 +1,5 @@
 using Domaincrafters.Domain;
+using Simplifyme.Taskly.Domain.User;
 
 
 
@@ -9,58 +10,84 @@ namespace Simplifyme.Taskly.Domain.TodoList;
 
     public class TodoList : Entity<TodoListId>
     {
-        public TodoListId? Id { get; }
-        public string Title { get; private set; }
-        public Guid UserId { get; }
-        private readonly List<Task> _tasks;
-        public IReadOnlyCollection<Task> Tasks => _tasks.AsReadOnly();
+        public string? Title { get; private set; }
+        public UserId? UserId { get; }
+        private readonly List<Task> Tasks;
+
         public bool IsLocked { get; private set; }
 
 
         public TodoList(
             TodoListId id, 
             string title,
-             Guid userId
-             ) : base(id)
+            UserId? userId,
+            List<Task> tasks
+            ) : base(id)
         {
-            Id = id ?? throw new ArgumentNullException(nameof(id));
             SetTitle(title);
             UserId = userId;
-            _tasks = new List<Task>();
-            IsLocked = false;
+            Tasks = tasks ?? new List<Task>();
+
+            ValidateState();
+        }
+
+        static public TodoList Create(UserId? userId, string title)
+        {
+            var tasks = new List<Task>();
+            var todoList = new TodoList(new TodoListId(), title, userId, tasks);
+
+            todoList.ValidateState();
 
             DomainEventPublisher
                 .Instance
-                .Publish(TodoListCreated.Create(Id.Value.ToString(), Title));
+                .Publish(TodoListCreated.Create(todoList.Id.Value.ToString(), title));
+
+            return todoList;
+    
         }
 
-        public void AddTask(Task task)
+        public TaskId AddTask(string description, TaskId? taskId = null, bool isDone = false)
         {
-            if (IsLocked)
-                throw new InvalidOperationException("Cannot modify a locked TodoList.");
+            EnsureNotLocked();
 
-            if (task == null)
-                throw new ArgumentNullException(nameof(task));
+            var task = Task.Create(description, isDone, taskId);
 
-            _tasks.Add(task);
+            EnsureValidTask(task);
+
+            Tasks.Add(task);
+
+            return task.Id;
         }
 
-        public void RemoveTask(TaskId taskId)
+        public Task RemoveTask(TaskId taskId)
         {
-            if (IsLocked)
-                throw new InvalidOperationException("Cannot modify a locked TodoList.");
+            EnsureNotLocked();
 
-            var task = _tasks.FirstOrDefault(t => t.Id.Equals(taskId));
-            if (task != null)
-                _tasks.Remove(task);
+            var index = Tasks.FindIndex(task => task.Id.Equals(taskId));
+
+            if (index == -1)
+            {
+                throw new InvalidOperationException(
+                    $"Task with id {taskId} not found in TodoList with id {Id}."
+                );
+            }
+
+            var removedTask = Tasks[index];
+            Tasks.RemoveAt(index);
+
+            return removedTask;
+        }
+
+        public Task? GetTaskAtIndex(int index)
+        {
+            return Tasks[index];
         }
 
         public void CompleteTask(TaskId taskId)
         {
-            if (IsLocked)
-                throw new InvalidOperationException("Cannot modify a locked TodoList.");
+            EnsureNotLocked();
 
-            var task = _tasks.FirstOrDefault(t => t.Id.Equals(taskId));
+            var task = Tasks.FirstOrDefault(t => t.Id.Equals(taskId));
             if (task == null)
                 throw new InvalidOperationException("Task not found.");
 
@@ -87,7 +114,8 @@ namespace Simplifyme.Taskly.Domain.TodoList;
 
         public override void ValidateState()
         {
-            throw new NotImplementedException();
+            Tasks.ForEach(task => task.ValidateState());
+            ValidateDescription();
         }
 
         public void ValidateDescription()
@@ -95,6 +123,24 @@ namespace Simplifyme.Taskly.Domain.TodoList;
             if (string.IsNullOrWhiteSpace(Title))
             {
                 throw new ArgumentException("Title cannot be empty.");
+            }
+        }
+
+        private void EnsureNotLocked()
+        {
+            if (IsLocked)
+            {
+                throw new InvalidOperationException("Cannot modify a locked TodoList.");
+            }
+        }
+
+        private void EnsureValidTask(Task taskToCheck)
+        {
+            if (Tasks.Any(task => task.Id.Equals(taskToCheck.Id)))
+            {
+                throw new InvalidOperationException(
+                    $"Task with id {taskToCheck.Id} already exists in TodoList with id {Id}."
+                );
             }
         }
     }
